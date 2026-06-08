@@ -53,3 +53,4 @@ body {
 .count { text-align: center; margin-top: 6px; font-weight: 600; font-size: 15px; }
 .export-row { display: flex; gap: 12px; margin-top: 28px; }
 .export-row .secondary-btn { flex: 1; }
+.queue-status { text-align: center; margin-top: 6px; font-size: 13px; color: var(--muted); }

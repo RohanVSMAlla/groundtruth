@@ -10,6 +10,8 @@ const CRISIS = ['Earthquake', 'Flood', 'Tsunami', 'Hurricane/Cyclone', 'Wildfire
 
 function App() {
   const [count, setCount] = useState(0)
+  const [queued, setQueued] = useState(getQueueCount())
+  const [online, setOnline] = useState(navigator.onLine)
   const [status, setStatus] = useState('')
   const [photo, setPhoto] = useState(null)
   const [coords, setCoords] = useState(null)
@@ -23,6 +25,20 @@ function App() {
     setCount(count || 0)
   }
   useEffect(() => { loadCount() }, [])
+  useEffect(() => {
+    async function handleOnline() {
+      setOnline(true)
+      const n = await syncQueue()
+      if (n > 0) { setStatus(`Synced ${n} queued report(s)`); setQueued(getQueueCount()); loadCount() }
+    }
+    function handleOffline() { setOnline(false) }
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   function getLocation() {
     setStatus('Getting location...')
@@ -38,15 +54,16 @@ function App() {
     setStatus('Saving...')
 
     let photoUrl = null
-    if (photo) {
+    if (photo && navigator.onLine) {
       const fileName = `${Date.now()}-${photo.name}`
       const { error: upErr } = await supabase.storage.from('photos').upload(fileName, photo)
-      if (upErr) { setStatus('Photo error: ' + upErr.message); return }
-      const { data } = supabase.storage.from('photos').getPublicUrl(fileName)
-      photoUrl = data.publicUrl
+      if (!upErr) {
+        const { data } = supabase.storage.from('photos').getPublicUrl(fileName)
+        photoUrl = data.publicUrl
+      }
     }
 
-    const { error } = await supabase.from('reports').insert({
+    const report = {
       damage_level: damage,
       infrastructure_type: infra,
       crisis_type: crisis,
@@ -54,11 +71,19 @@ function App() {
       latitude: coords?.lat,
       longitude: coords?.lng,
       photo_url: photoUrl,
-    })
-    if (error) { setStatus('Error: ' + error.message); return }
-    setStatus('Report submitted!')
+    }
+
+    if (!navigator.onLine) {
+      queueReport(report)
+      setQueued(getQueueCount())
+      setStatus('No internet — report queued, will send when online')
+    } else {
+      const { error } = await supabase.from('reports').insert(report)
+      if (error) { setStatus('Error: ' + error.message); return }
+      setStatus('Report submitted!')
+      loadCount()
+    }
     setDamage(''); setInfra(''); setCrisis(''); setDebris(false); setPhoto(null); setCoords(null)
-    loadCount()
   }
 
   return (
@@ -108,6 +133,9 @@ function App() {
 
         <p className="status">{status}</p>
         <p className="count">Reports saved: {count}</p>
+        <p className="queue-status">
+          {online ? '● Online' : '○ Offline'}{queued > 0 ? ` — ${queued} report(s) waiting to sync` : ''}
+        </p>
         <div className="export-row">
           <button className="secondary-btn" onClick={exportGeoJSON}>Export GeoJSON</button>
           <button className="secondary-btn" onClick={exportCSV}>Export CSV</button>
