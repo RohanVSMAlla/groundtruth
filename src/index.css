@@ -109,3 +109,23 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+.field-label { display: block; font-size: 14px; font-weight: 600; margin: 22px 0 8px; }
+.file-input, .select {
+  width: 100%; padding: 12px; border: 1px solid var(--line);
+  border-radius: 12px; font-size: 15px; background: var(--surface);
+}
+.secondary-btn {
+  width: 100%; padding: 14px; border: 1px solid var(--accent);
+  background: var(--surface); color: var(--accent); border-radius: 12px;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.hint { font-size: 13px; color: var(--minimal); margin-top: 6px; font-weight: 600; }
+.damage.sel { outline: 3px solid var(--ink); outline-offset: 2px; }
+.checkbox-row { display: flex; align-items: center; gap: 10px; margin-top: 20px; font-size: 15px; }
+.checkbox-row input { width: 20px; height: 20px; }
+.submit-btn {
+  width: 100%; margin-top: 24px; padding: 18px; border: none;
+  background: var(--accent); color: #fff; border-radius: 14px;
+  font-size: 17px; font-weight: 700; cursor: pointer;
+}
+.submit-btn:active { transform: scale(0.99); }

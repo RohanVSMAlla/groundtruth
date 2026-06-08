@@ -51,3 +51,5 @@ body {
 .destroyed { background: var(--destroyed); }
 .status { text-align: center; margin-top: 18px; color: var(--muted); font-size: 14px; min-height: 20px; }
 .count { text-align: center; margin-top: 6px; font-weight: 600; font-size: 15px; }
+.export-row { display: flex; gap: 12px; margin-top: 28px; }
+.export-row .secondary-btn { flex: 1; }
