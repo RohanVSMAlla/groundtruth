@@ -8,7 +8,7 @@ import { useRef } from 'react'
 const COLORS = { minimal: '#1d9e75', partial: '#ef9f27', destroyed: '#e24b4a' }
 const CRISIS = ['Earthquake', 'Flood', 'Tsunami', 'Hurricane/Cyclone', 'Wildfire', 'Explosion', 'Chemical', 'Conflict', 'Civil unrest']
 
-function Dashboard() {
+function Dashboard({ lang = 'en' }) {
   const [buildings, setBuildings] = useState([])
   const [damageFilter, setDamageFilter] = useState('all')
   const [crisisFilter, setCrisisFilter] = useState('all')
