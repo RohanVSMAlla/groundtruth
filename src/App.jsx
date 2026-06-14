@@ -8,9 +8,13 @@ import './App.css'
 
 const INFRA = ['Residential', 'Commercial', 'Government', 'Utility', 'Transport', 'Community', 'Public space', 'Other']
 const CRISIS = ['Earthquake', 'Flood', 'Tsunami', 'Hurricane/Cyclone', 'Wildfire', 'Explosion', 'Chemical', 'Conflict', 'Civil unrest']
-
+function detectLanguage() {
+  const supported = ['en', 'ar', 'zh', 'fr', 'ru', 'es']
+  const browserLang = (navigator.language || 'en').slice(0, 2).toLowerCase()
+  return supported.includes(browserLang) ? browserLang : 'en'
+}
 function App() {
-  const [lang, setLang] = useState('en')
+  const [lang, setLang] = useState(detectLanguage())
   const [view, setView] = useState('report')
   const [count, setCount] = useState(0)
   const [queued, setQueued] = useState(getQueueCount())
