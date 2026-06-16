@@ -26,7 +26,9 @@ function App() {
   const [infra, setInfra] = useState('')
   const [crisis, setCrisis] = useState('')
   const [debris, setDebris] = useState(false)
-
+  const [description, setDescription] = useState('')
+  const [landmark, setLandmark] = useState('')
+  const [gpsFailed, setGpsFailed] = useState(false)
   const dir = LANGUAGES[lang].dir
   const t = (key) => tr(key, lang)
 
@@ -59,8 +61,8 @@ function App() {
   function getLocation() {
     setStatus('...')
     navigator.geolocation.getCurrentPosition(
-      (pos) => { setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setStatus('✓') },
-      () => setStatus('Location unavailable')
+      (pos) => { setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGpsFailed(false); setStatus('✓') },
+      () => { setGpsFailed(true); setStatus('') }
     )
   }
 
@@ -82,6 +84,7 @@ function App() {
     const report = {
       damage_level: damage, infrastructure_type: infra, crisis_type: crisis,
       has_debris: debris, latitude: coords?.lat, longitude: coords?.lng, photo_url: photoUrl, language: lang,
+      description: description, landmark: landmark,
     }
 
     if (!navigator.onLine) {
@@ -95,6 +98,7 @@ function App() {
       loadCount()
     }
     setDamage(''); setInfra(''); setCrisis(''); setDebris(false); setPhoto(null); setCoords(null)
+    setDescription(''); setLandmark(''); setGpsFailed(false)
   }
 
   return (
@@ -130,6 +134,13 @@ function App() {
           <label className="field-label">{t('location')}</label>
           <button className="secondary-btn" onClick={getLocation}>{t('captureLocation')}</button>
           {coords && <p className="hint">✓ {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</p>}
+          {gpsFailed && (
+            <>
+              <p className="map-hint" style={{ color: 'var(--partial)', marginTop: '8px' }}>{t('gpsFail')}</p>
+              <input type="text" value={landmark} onChange={(e) => setLandmark(e.target.value)}
+                placeholder={t('landmarkPlaceholder')} className="select" style={{ marginTop: '8px' }} />
+            </>
+          )}
 
           <label className="field-label">{t('damageLevel')}</label>
           <div className="damage-grid">
@@ -150,10 +161,9 @@ function App() {
             {CRISIS.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
 
-          <label className="checkbox-row">
-            <input type="checkbox" checked={debris} onChange={(e) => setDebris(e.target.checked)} />
-            {t('debris')}
-          </label>
+          <label className="field-label">{t('descriptionLabel')}</label>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+            placeholder={t('descriptionPlaceholder')} className="select" rows={3} style={{ resize: 'vertical', fontFamily: 'inherit' }} />
 
           <button className="submit-btn" onClick={submit}>{t('submit')}</button>
 

@@ -10,14 +10,40 @@ const CRISIS = ['Earthquake', 'Flood', 'Tsunami', 'Hurricane/Cyclone', 'Wildfire
 
 function Dashboard({ lang = 'en' }) {
   const [buildings, setBuildings] = useState([])
+  const [reports, setReports] = useState([])
   const [damageFilter, setDamageFilter] = useState('all')
   const [crisisFilter, setCrisisFilter] = useState('all')
   const containerRef = useRef(null)
   const mapRef = useRef(null)
 
+  async function translateText(text, target = 'en') {
+    try {
+      const res = await fetch('https://guipfbivtvhbzkxjmkeu.supabase.co/functions/v1/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, target }),
+      })
+      const data = await res.json()
+      return data.translated || ''
+    } catch { return '' }
+  }
+
   async function load() {
     const { data } = await supabase.from('buildings').select('*').not('latitude', 'is', null)
     setBuildings(data || [])
+
+    const { data: reps } = await supabase.from('reports')
+      .select('*').not('description', 'is', null).neq('description', '')
+      .order('created_at', { ascending: false }).limit(20)
+
+    const withTranslation = await Promise.all((reps || []).map(async (r) => {
+      if (r.language && r.language !== 'en' && r.description) {
+        const translated = await translateText(r.description, 'en')
+        return { ...r, description_en: translated }
+      }
+      return r
+    }))
+    setReports(withTranslation)
   }
   useEffect(() => { load() }, [])
 
@@ -79,6 +105,22 @@ function Dashboard({ lang = 'en' }) {
         <button className="secondary-btn" onClick={exportGeoJSON}>Export GeoJSON</button>
         <button className="secondary-btn" onClick={exportCSV}>Export CSV</button>
       </div>
+      {reports.length > 0 && (
+        <>
+          <h2 style={{ marginTop: '32px' }}>Recent descriptions</h2>
+          <div className="report-list">
+            {reports.map((r) => (
+              <div key={r.id} className="report-card">
+                <span className={`badge ${r.damage_level}`}>{r.damage_level}</span>
+                <p className="report-desc">{r.description}</p>
+                {r.description_en && r.description_en !== r.description && (
+                  <p className="report-trans">🌐 {r.description_en}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </main>
   )
 }

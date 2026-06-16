@@ -38,6 +38,10 @@ export const T = {
   allLevels: { en: 'All levels', ar: 'جميع المستويات', zh: '所有级别', fr: 'Tous niveaux', ru: 'Все уровни', es: 'Todos los niveles' },
   online: { en: 'Online', ar: 'متصل', zh: '在线', fr: 'En ligne', ru: 'В сети', es: 'En línea' },
   offline: { en: 'Offline', ar: 'غير متصل', zh: '离线', fr: 'Hors ligne', ru: 'Не в сети', es: 'Sin conexión' },
+  gpsFail: { en: 'GPS unavailable. Describe a nearby landmark instead:', ar: 'GPS غير متاح. صف معلماً قريباً بدلاً من ذلك:', zh: '无法获取GPS。请描述附近的地标：', fr: 'GPS indisponible. Décrivez un point de repère proche :', ru: 'GPS недоступен. Опишите ближайший ориентир:', es: 'GPS no disponible. Describa un punto de referencia cercano:' },
+  landmarkPlaceholder: { en: 'e.g. school near the central market', ar: 'مثال: المدرسة قرب السوق المركزي', zh: '例如：中央市场附近的学校', fr: 'ex. école près du marché central', ru: 'напр. школа у центрального рынка', es: 'ej. escuela cerca del mercado central' },
+  descriptionLabel: { en: 'Description (optional)', ar: 'الوصف (اختياري)', zh: '描述（可选）', fr: 'Description (facultatif)', ru: 'Описание (необязательно)', es: 'Descripción (opcional)' },
+  descriptionPlaceholder: { en: 'Describe the damage in your own words', ar: 'صف الضرر بكلماتك الخاصة', zh: '用您自己的话描述损害', fr: 'Décrivez les dommages avec vos mots', ru: 'Опишите ущерб своими словами', es: 'Describa el daño con sus palabras' },
 }
 
 export function tr(key, lang) {
