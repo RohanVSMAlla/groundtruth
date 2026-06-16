@@ -5,6 +5,7 @@ import { LANGUAGES, tr } from './translations'
 import MapView from './MapView'
 import Dashboard from './Dashboard'
 import './App.css'
+import { getContributorId, getBadge } from './contributor'
 
 const INFRA = ['Residential', 'Commercial', 'Government', 'Utility', 'Transport', 'Community', 'Public space', 'Other']
 const CRISIS = ['Earthquake', 'Flood', 'Tsunami', 'Hurricane/Cyclone', 'Wildfire', 'Explosion', 'Chemical', 'Conflict', 'Civil unrest']
@@ -17,6 +18,8 @@ function App() {
   const [lang, setLang] = useState(detectLanguage())
   const [view, setView] = useState('report')
   const [count, setCount] = useState(0)
+  const [myReports, setMyReports] = useState(0)
+  const [myConfirmed, setMyConfirmed] = useState(0)
   const [queued, setQueued] = useState(getQueueCount())
   const [online, setOnline] = useState(navigator.onLine)
   const [status, setStatus] = useState('')
@@ -29,6 +32,9 @@ function App() {
   const [description, setDescription] = useState('')
   const [landmark, setLandmark] = useState('')
   const [gpsFailed, setGpsFailed] = useState(false)
+  const [aiSuggestion, setAiSuggestion] = useState(null)
+  const [aiThinking, setAiThinking] = useState(false)
+  const [photoUrl, setPhotoUrl] = useState(null)
   const dir = LANGUAGES[lang].dir
   const t = (key) => tr(key, lang)
 
@@ -41,7 +47,18 @@ function App() {
     const { count } = await supabase.from('reports').select('*', { count: 'exact', head: true })
     setCount(count || 0)
   }
-  useEffect(() => { loadCount() }, [])
+  async function loadMyStats() {
+    const cid = getContributorId()
+    const { data } = await supabase.from('reports').select('building_id').eq('contributor_id', cid)
+    setMyReports(data?.length || 0)
+    // confirmed = reports whose building has more than 1 report (corroborated by others)
+    const buildingIds = [...new Set((data || []).map(r => r.building_id).filter(Boolean))]
+    if (buildingIds.length) {
+      const { data: bs } = await supabase.from('buildings').select('report_count').in('id', buildingIds)
+      setMyConfirmed((bs || []).filter(b => b.report_count > 1).length)
+    }
+  }
+  useEffect(() => { loadCount(); loadMyStats() }, [])
 
   useEffect(() => {
     async function handleOnline() {
@@ -65,14 +82,38 @@ function App() {
       () => { setGpsFailed(true); setStatus('') }
     )
   }
-
+async function handlePhoto(file) {
+    setPhoto(file)
+    setAiSuggestion(null)
+    if (!file || !navigator.onLine) return
+    setAiThinking(true)
+    try {
+      const fileName = `${Date.now()}-${file.name}`
+      const { error } = await supabase.storage.from('photos').upload(fileName, file)
+      if (!error) {
+        const { data } = supabase.storage.from('photos').getPublicUrl(fileName)
+        setPhotoUrl(data.publicUrl)
+        const res = await fetch('https://guipfbivtvhbzkxjmkeu.supabase.co/functions/v1/classify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl: data.publicUrl }),
+        })
+        const result = await res.json()
+        if (result.suggestion) {
+          setAiSuggestion(result.suggestion)
+          setDamage(result.suggestion) // pre-select, user can change
+        }
+      }
+    } catch (e) { /* AI is assistive — fail silently */ }
+    setAiThinking(false)
+  }
   async function submit() {
     if (!damage) { setStatus(t('damageLevel')); return }
     if (!infra) { setStatus(t('infraType')); return }
     setStatus('...')
 
-    let photoUrl = null
-    if (photo && navigator.onLine) {
+    let finalPhotoUrl = photoUrl
+    if (photo && !photoUrl && navigator.onLine) {
       const fileName = `${Date.now()}-${photo.name}`
       const { error: upErr } = await supabase.storage.from('photos').upload(fileName, photo)
       if (!upErr) {
@@ -83,9 +124,10 @@ function App() {
 
     const report = {
       damage_level: damage, infrastructure_type: infra, crisis_type: crisis,
-      has_debris: debris, latitude: coords?.lat, longitude: coords?.lng, photo_url: photoUrl, language: lang,
-      description: description, landmark: landmark,
+      has_debris: debris, latitude: coords?.lat, longitude: coords?.lng, photo_url: finalPhotoUrl, language: lang,
+      description: description, landmark: landmark, contributor_id: getContributorId(),
     }
+    
 
     if (!navigator.onLine) {
       queueReport(report)
@@ -95,10 +137,11 @@ function App() {
       const { error } = await supabase.from('reports').insert(report)
       if (error) { setStatus('Error: ' + error.message); return }
       setStatus('✓ ' + t('submit'))
-      loadCount()
+      loadCount(); loadMyStats()
     }
     setDamage(''); setInfra(''); setCrisis(''); setDebris(false); setPhoto(null); setCoords(null)
     setDescription(''); setLandmark(''); setGpsFailed(false)
+    setAiSuggestion(null); setPhotoUrl(null)
   }
 
   return (
@@ -116,7 +159,13 @@ function App() {
           </select>
         </div>
       </header>
-
+      <div className="badge-bar">
+        <span className="badge-icon">{getBadge(myReports, myConfirmed).icon}</span>
+        <div>
+          <div className="badge-name">{getBadge(myReports, myConfirmed).name}</div>
+          <div className="badge-sub">{myReports} reports · {myConfirmed} confirmed by others</div>
+        </div>
+      </div>
       <nav className="tabs">
         <button className={`tab ${view==='report'?'active':''}`} onClick={() => setView('report')}>{t('report')}</button>
         <button className={`tab ${view==='dashboard'?'active':''}`} onClick={() => setView('dashboard')}>{t('dashboard')}</button>
@@ -128,8 +177,10 @@ function App() {
 
           <label className="field-label">{t('photo')}</label>
           <input type="file" accept="image/*" capture="environment"
-            onChange={(e) => setPhoto(e.target.files[0])} className="file-input" />
+            onChange={(e) => handlePhoto(e.target.files[0])} className="file-input" />
           {photo && <p className="hint">✓ {photo.name}</p>}
+          {aiThinking && <p className="ai-hint">🔍 Analyzing photo...</p>}
+          {aiSuggestion && <p className="ai-hint">🤖 AI suggests: <strong>{t(aiSuggestion)}</strong> — confirm or change below.</p>}
 
           <label className="field-label">{t('location')}</label>
           <button className="secondary-btn" onClick={getLocation}>{t('captureLocation')}</button>
