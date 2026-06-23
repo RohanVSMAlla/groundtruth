@@ -278,6 +278,11 @@ function App() {
         {listening && <p className="ai-hint">🎙️ Listening... speak now</p>}
 
         <label className="checkbox-row">
+          <input type="checkbox" checked={debris} onChange={(e) => setDebris(e.target.checked)} />
+          {t('debris')}
+        </label>
+
+        <label className="checkbox-row">
           <input type="checkbox" checked={wantContact} onChange={(e) => setWantContact(e.target.checked)} />
           Contact me about this report (optional)
         </label>

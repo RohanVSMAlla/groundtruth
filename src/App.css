@@ -121,3 +121,11 @@ body {
   border-radius: 12px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer;
 }
 .toggle-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.select, .file-input, textarea, input[type="text"] {
+  color: var(--ink) !important;
+  background: var(--surface);
+}
+.select option {
+  color: var(--ink);
+  background: var(--surface);
+}
