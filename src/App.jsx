@@ -43,6 +43,7 @@ function App() {
   const [wantContact, setWantContact] = useState(false)
   const [contactInfo, setContactInfo] = useState('')
   const [listening, setListening] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
   const recognitionRef = useRef(null)
   const dir = LANGUAGES[lang].dir
   const t = (key) => tr(key, lang)
@@ -187,8 +188,9 @@ function App() {
     } else {
       const { error } = await supabase.from('reports').insert(report)
       if (error) { setStatus('Error: ' + error.message); return }
-      setStatus('✓ ' + t('submit'))
       loadCount(); loadMyStats()
+      setSubmitted(true)
+      setTimeout(() => setSubmitted(false), 3500)
     }
     setDamage(''); setInfra(''); setCrisis(''); setDebris(false); setPhoto(null); setCoords(null)
     setDescription(''); setLandmark(''); setGpsFailed(false)
@@ -199,6 +201,15 @@ function App() {
 
   return (
     <div className="app" dir={dir}>
+      {submitted && (
+        <div className="thankyou-overlay">
+          <div className="thankyou-content">
+            <div className="thankyou-check">✓</div>
+            <h2>{t('thankYou')}</h2>
+            <p>{t('thankYouMsg')}</p>
+          </div>
+        </div>
+      )}
       <header className="header">
         <div className="header-row">
           <div>

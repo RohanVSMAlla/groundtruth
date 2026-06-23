@@ -44,6 +44,8 @@ export const T = {
   descriptionPlaceholder: { en: 'Describe the damage in your own words', ar: 'صف الضرر بكلماتك الخاصة', zh: '用您自己的话描述损害', fr: 'Décrivez les dommages avec vos mots', ru: 'Опишите ущерб своими словами', es: 'Describa el daño con sus palabras' },
   w3wLabel: { en: 'Or enter a what3words address:', ar: 'أو أدخل عنوان what3words:', zh: '或输入 what3words 地址：', fr: 'Ou saisissez une adresse what3words :', ru: 'Или введите адрес what3words:', es: 'O ingrese una dirección what3words:' },
   w3wFind: { en: 'Find', ar: 'بحث', zh: '查找', fr: 'Trouver', ru: 'Найти', es: 'Buscar' },
+  thankYou: { en: 'Thank you!', ar: 'شكراً لك!', zh: '谢谢您！', fr: 'Merci !', ru: 'Спасибо!', es: '¡Gracias!' },
+  thankYouMsg: { en: 'Your contribution is highly valuable and helps your community recover faster.', ar: 'مساهمتك قيّمة للغاية وتساعد مجتمعك على التعافي بشكل أسرع.', zh: '您的贡献非常宝贵，有助于您的社区更快恢复。', fr: 'Votre contribution est précieuse et aide votre communauté à se rétablir plus vite.', ru: 'Ваш вклад очень ценен и помогает вашему сообществу быстрее восстановиться.', es: 'Su contribución es muy valiosa y ayuda a su comunidad a recuperarse más rápido.' },
 }
 
 export function tr(key, lang) {
