@@ -190,10 +190,7 @@ function Dashboard({ standalone = false }) {
               {reports.map((r) => (
                 <div key={r.id} className="report-card">
                   <span className={`badge ${r.damage_level}`}>{r.damage_level}</span>
-                  <p className="report-desc">{r.description}</p>
-                  {r.description_en && r.description_en !== r.description && (
-                    <p className="report-trans">🌐 {r.description_en}</p>
-                  )}
+                  <p className="report-desc">{r.description_en || r.description}</p>
                 </div>
               ))}
             </div>
