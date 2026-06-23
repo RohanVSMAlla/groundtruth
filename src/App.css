@@ -96,3 +96,28 @@ body {
 .badge-name { font-size: 15px; font-weight: 700; }
 .badge-sub { font-size: 12px; color: var(--muted); }
 .ai-hint { font-size: 13px; color: var(--accent); margin-top: 8px; padding: 10px 12px; background: #eef5fd; border-radius: 10px; }
+.w3w { font-size: 14px; color: var(--accent); font-weight: 700; margin-top: 6px; letter-spacing: 0.02em; }
+.w3w-row { display: flex; gap: 8px; margin-top: 8px; }
+.w3w-row .select { flex: 1; }
+.w3w-btn { flex-shrink: 0; width: auto; padding: 12px 18px; }
+.help-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent); color: #fff; font-size: 12px; font-weight: 700;
+  cursor: help; margin-left: 4px; vertical-align: middle;
+}
+.desc-row { display: flex; gap: 8px; align-items: flex-start; }
+.desc-row .select { flex: 1; }
+.mic-btn {
+  flex-shrink: 0; width: 48px; height: 48px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--surface); font-size: 20px;
+  cursor: pointer; transition: all 0.15s;
+}
+.mic-btn.listening { background: var(--destroyed); border-color: var(--destroyed); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+.map-toggle { display: flex; gap: 8px; margin-top: 16px; }
+.toggle-btn {
+  flex: 1; padding: 12px; border: 1px solid var(--line); background: var(--surface);
+  border-radius: 12px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer;
+}
+.toggle-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }

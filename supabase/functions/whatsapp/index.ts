@@ -5,6 +5,13 @@ const supabase = createClient(
   Deno.env.get('SERVICE_ROLE_KEY')!
 )
 
+// Hash a phone number → anonymous ID (no plaintext PII stored)
+async function anonymize(phone: string) {
+  const data = new TextEncoder().encode(phone + 'groundtruth_salt')
+  const buf = await crypto.subtle.digest('SHA-256', data)
+  return 'wa_' + Array.from(new Uint8Array(buf)).slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
 function twiml(message: string) {
   return new Response(
     `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${message}</Message></Response>`,
@@ -32,7 +39,6 @@ Deno.serve(async (req) => {
   const lat = form.get('Latitude')?.toString()
   const lng = form.get('Longitude')?.toString()
 
-  // restart keywords
   if (body === 'hi' || body === 'hello' || body === 'report' || body === 'start') {
     await setSession(from, { step: 'await_photo', photo: null, lat: null, lng: null })
     return twiml('🆘 GroundTruth damage report.\n\nPlease send a *photo* of the damage.')
@@ -65,12 +71,15 @@ Deno.serve(async (req) => {
     const level = map[body]
     if (!level) return twiml('Please reply *1*, *2*, or *3*.')
 
+    const anonId = await anonymize(from)
+
     const { error } = await supabase.from('reports').insert({
       damage_level: level,
       latitude: s.lat,
       longitude: s.lng,
       photo_url: s.photo,
       channel: 'whatsapp',
+      contributor_id: anonId,
     })
 
     await clearSession(from)

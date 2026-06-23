@@ -42,6 +42,8 @@ export const T = {
   landmarkPlaceholder: { en: 'e.g. school near the central market', ar: 'مثال: المدرسة قرب السوق المركزي', zh: '例如：中央市场附近的学校', fr: 'ex. école près du marché central', ru: 'напр. школа у центрального рынка', es: 'ej. escuela cerca del mercado central' },
   descriptionLabel: { en: 'Description (optional)', ar: 'الوصف (اختياري)', zh: '描述（可选）', fr: 'Description (facultatif)', ru: 'Описание (необязательно)', es: 'Descripción (opcional)' },
   descriptionPlaceholder: { en: 'Describe the damage in your own words', ar: 'صف الضرر بكلماتك الخاصة', zh: '用您自己的话描述损害', fr: 'Décrivez les dommages avec vos mots', ru: 'Опишите ущерб своими словами', es: 'Describa el daño con sus palabras' },
+  w3wLabel: { en: 'Or enter a what3words address:', ar: 'أو أدخل عنوان what3words:', zh: '或输入 what3words 地址：', fr: 'Ou saisissez une adresse what3words :', ru: 'Или введите адрес what3words:', es: 'O ingrese una dirección what3words:' },
+  w3wFind: { en: 'Find', ar: 'بحث', zh: '查找', fr: 'Trouver', ru: 'Найти', es: 'Buscar' },
 }
 
 export function tr(key, lang) {

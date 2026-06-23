@@ -1,14 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabaseClient'
 import { queueReport, getQueueCount, syncQueue } from './offlineQueue'
 import { LANGUAGES, tr } from './translations'
 import MapView from './MapView'
-import Dashboard from './Dashboard'
 import './App.css'
 import { getContributorId, getBadge } from './contributor'
-
+import { coordsToWords, wordsToCoords } from './what3words'
+import { getCountry } from './geocode'
 const INFRA = ['Residential', 'Commercial', 'Government', 'Utility', 'Transport', 'Community', 'Public space', 'Other']
 const CRISIS = ['Earthquake', 'Flood', 'Tsunami', 'Hurricane/Cyclone', 'Wildfire', 'Explosion', 'Chemical', 'Conflict', 'Civil unrest']
+const SPEECH_LANG = { en: 'en-US', ar: 'ar-SA', zh: 'zh-CN', fr: 'fr-FR', ru: 'ru-RU', es: 'es-ES' }
+function Help({ text }) {
+  return <span className="help-icon" title={text}>?</span>
+}
 function detectLanguage() {
   const supported = ['en', 'ar', 'zh', 'fr', 'ru', 'es']
   const browserLang = (navigator.language || 'en').slice(0, 2).toLowerCase()
@@ -16,7 +20,6 @@ function detectLanguage() {
 }
 function App() {
   const [lang, setLang] = useState(detectLanguage())
-  const [view, setView] = useState('report')
   const [count, setCount] = useState(0)
   const [myReports, setMyReports] = useState(0)
   const [myConfirmed, setMyConfirmed] = useState(0)
@@ -32,9 +35,15 @@ function App() {
   const [description, setDescription] = useState('')
   const [landmark, setLandmark] = useState('')
   const [gpsFailed, setGpsFailed] = useState(false)
+  const [words, setWords] = useState('')
+  const [wordsInput, setWordsInput] = useState('')
   const [aiSuggestion, setAiSuggestion] = useState(null)
   const [aiThinking, setAiThinking] = useState(false)
   const [photoUrl, setPhotoUrl] = useState(null)
+  const [wantContact, setWantContact] = useState(false)
+  const [contactInfo, setContactInfo] = useState('')
+  const [listening, setListening] = useState(false)
+  const recognitionRef = useRef(null)
   const dir = LANGUAGES[lang].dir
   const t = (key) => tr(key, lang)
 
@@ -51,7 +60,6 @@ function App() {
     const cid = getContributorId()
     const { data } = await supabase.from('reports').select('building_id').eq('contributor_id', cid)
     setMyReports(data?.length || 0)
-    // confirmed = reports whose building has more than 1 report (corroborated by others)
     const buildingIds = [...new Set((data || []).map(r => r.building_id).filter(Boolean))]
     if (buildingIds.length) {
       const { data: bs } = await supabase.from('buildings').select('report_count').in('id', buildingIds)
@@ -75,14 +83,54 @@ function App() {
     }
   }, [])
 
+  function toggleListening() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) { setStatus('Speech not supported on this browser'); return }
+    if (listening) {
+      recognitionRef.current?.stop()
+      setListening(false)
+      return
+    }
+    const rec = new SR()
+    rec.lang = SPEECH_LANG[lang] || 'en-US'
+    rec.continuous = false
+    rec.interimResults = false
+    rec.onresult = (e) => {
+      const text = e.results[0][0].transcript
+      setDescription((prev) => (prev ? prev + ' ' : '') + text)
+    }
+    rec.onend = () => setListening(false)
+    rec.onerror = () => setListening(false)
+    recognitionRef.current = rec
+    rec.start()
+    setListening(true)
+  }
+
   function getLocation() {
     setStatus('...')
     navigator.geolocation.getCurrentPosition(
-      (pos) => { setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGpsFailed(false); setStatus('✓') },
+      async (pos) => {
+        const lat = pos.coords.latitude, lng = pos.coords.longitude
+        setCoords({ lat, lng }); setGpsFailed(false); setStatus('✓')
+        const w = await coordsToWords(lat, lng)
+        if (w) setWords(w)
+      },
       () => { setGpsFailed(true); setStatus('') }
     )
   }
-async function handlePhoto(file) {
+
+  async function resolveWords() {
+    if (!wordsInput.trim()) return
+    setStatus('Finding location...')
+    const c = await wordsToCoords(wordsInput)
+    if (c) {
+      setCoords(c); setWords(wordsInput.replace(/^\/+/, '').trim()); setStatus('✓ Location found')
+    } else {
+      setStatus('Could not find that Plus Code — check it and try again')
+    }
+  }
+
+  async function handlePhoto(file) {
     setPhoto(file)
     setAiSuggestion(null)
     if (!file || !navigator.onLine) return
@@ -101,12 +149,13 @@ async function handlePhoto(file) {
         const result = await res.json()
         if (result.suggestion) {
           setAiSuggestion(result.suggestion)
-          setDamage(result.suggestion) // pre-select, user can change
+          setDamage(result.suggestion)
         }
       }
     } catch (e) { /* AI is assistive — fail silently */ }
     setAiThinking(false)
   }
+
   async function submit() {
     if (!damage) { setStatus(t('damageLevel')); return }
     if (!infra) { setStatus(t('infraType')); return }
@@ -118,7 +167,7 @@ async function handlePhoto(file) {
       const { error: upErr } = await supabase.storage.from('photos').upload(fileName, photo)
       if (!upErr) {
         const { data } = supabase.storage.from('photos').getPublicUrl(fileName)
-        photoUrl = data.publicUrl
+        finalPhotoUrl = data.publicUrl
       }
     }
 
@@ -126,8 +175,10 @@ async function handlePhoto(file) {
       damage_level: damage, infrastructure_type: infra, crisis_type: crisis,
       has_debris: debris, latitude: coords?.lat, longitude: coords?.lng, photo_url: finalPhotoUrl, language: lang,
       description: description, landmark: landmark, contributor_id: getContributorId(),
+      what3words: words || null,
+      country: (coords ? await getCountry(coords.lat, coords.lng) : null),
+      contact_info: wantContact ? contactInfo : null,
     }
-    
 
     if (!navigator.onLine) {
       queueReport(report)
@@ -142,6 +193,8 @@ async function handlePhoto(file) {
     setDamage(''); setInfra(''); setCrisis(''); setDebris(false); setPhoto(null); setCoords(null)
     setDescription(''); setLandmark(''); setGpsFailed(false)
     setAiSuggestion(null); setPhotoUrl(null)
+    setWords(''); setWordsInput('')
+    setWantContact(false); setContactInfo('')
   }
 
   return (
@@ -166,70 +219,84 @@ async function handlePhoto(file) {
           <div className="badge-sub">{myReports} reports · {myConfirmed} confirmed by others</div>
         </div>
       </div>
-      <nav className="tabs">
-        <button className={`tab ${view==='report'?'active':''}`} onClick={() => setView('report')}>{t('report')}</button>
-        <button className={`tab ${view==='dashboard'?'active':''}`} onClick={() => setView('dashboard')}>{t('dashboard')}</button>
-      </nav>
 
-      {view === 'report' ? (
-        <main className="main">
-          <h2>{t('reportDamage')}</h2>
+      <main className="main">
+        <h2>{t('reportDamage')}</h2>
 
-          <label className="field-label">{t('photo')}</label>
-          <input type="file" accept="image/*" capture="environment"
-            onChange={(e) => handlePhoto(e.target.files[0])} className="file-input" />
-          {photo && <p className="hint">✓ {photo.name}</p>}
-          {aiThinking && <p className="ai-hint">🔍 Analyzing photo...</p>}
-          {aiSuggestion && <p className="ai-hint">🤖 AI suggests: <strong>{t(aiSuggestion)}</strong> — confirm or change below.</p>}
+        <label className="field-label">{t('photo')} <Help text="Take or upload a clear photo of the damaged building or infrastructure." /></label>
+        <input type="file" accept="image/*" capture="environment"
+          onChange={(e) => handlePhoto(e.target.files[0])} className="file-input" />
+        {photo && <p className="hint">✓ {photo.name}</p>}
+        {aiThinking && <p className="ai-hint">🔍 Analyzing photo...</p>}
+        {aiSuggestion && <p className="ai-hint">🤖 AI suggests: <strong>{t(aiSuggestion)}</strong> — confirm or change below.</p>}
 
-          <label className="field-label">{t('location')}</label>
-          <button className="secondary-btn" onClick={getLocation}>{t('captureLocation')}</button>
-          {coords && <p className="hint">✓ {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</p>}
-          {gpsFailed && (
-            <>
-              <p className="map-hint" style={{ color: 'var(--partial)', marginTop: '8px' }}>{t('gpsFail')}</p>
-              <input type="text" value={landmark} onChange={(e) => setLandmark(e.target.value)}
-                placeholder={t('landmarkPlaceholder')} className="select" style={{ marginTop: '8px' }} />
-            </>
-          )}
+        <label className="field-label">{t('location')} <Help text="Tap to capture your GPS location automatically. If GPS fails, describe a nearby landmark." /></label>
+        <button className="secondary-btn" onClick={getLocation}>{t('captureLocation')}</button>
+        {coords && <p className="hint">✓ {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</p>}
+        {words && <p className="w3w">⊞ {words}</p>}
+        {gpsFailed && (
+          <>
+            <p className="map-hint" style={{ color: 'var(--partial)', marginTop: '8px' }}>{t('gpsFail')}</p>
+            <input type="text" value={landmark} onChange={(e) => setLandmark(e.target.value)}
+              placeholder={t('landmarkPlaceholder')} className="select" style={{ marginTop: '8px' }} />
+            <p className="field-label" style={{ marginTop: '14px' }}>Or enter a Plus Code:</p>
+            <div className="w3w-row">
+              <input type="text" value={wordsInput} onChange={(e) => setWordsInput(e.target.value)}
+                placeholder="8FW4V75V+8Q" className="select" />
+              <button className="secondary-btn w3w-btn" onClick={resolveWords}>Find</button>
+            </div>
+          </>
+        )}
 
-          <label className="field-label">{t('damageLevel')}</label>
-          <div className="damage-grid">
-            <button className={`damage minimal ${damage==='minimal'?'sel':''}`} onClick={() => setDamage('minimal')}>{t('minimal')}</button>
-            <button className={`damage partial ${damage==='partial'?'sel':''}`} onClick={() => setDamage('partial')}>{t('partial')}</button>
-            <button className={`damage destroyed ${damage==='destroyed'?'sel':''}`} onClick={() => setDamage('destroyed')}>{t('destroyed')}</button>
-          </div>
+        <label className="field-label">{t('damageLevel')} <Help text="Minimal: cosmetic only. Partial: damaged but standing. Destroyed: collapsed or unsafe." /></label>
+        <div className="damage-grid">
+          <button className={`damage minimal ${damage==='minimal'?'sel':''}`} onClick={() => setDamage('minimal')}>{t('minimal')}</button>
+          <button className={`damage partial ${damage==='partial'?'sel':''}`} onClick={() => setDamage('partial')}>{t('partial')}</button>
+          <button className={`damage destroyed ${damage==='destroyed'?'sel':''}`} onClick={() => setDamage('destroyed')}>{t('destroyed')}</button>
+        </div>
 
-          <label className="field-label">{t('infraType')}</label>
-          <select value={infra} onChange={(e) => setInfra(e.target.value)} className="select">
-            <option value="">{t('select')}</option>
-            {INFRA.map(i => <option key={i} value={i}>{i}</option>)}
-          </select>
+        <label className="field-label">{t('infraType')} <Help text="What kind of building or structure is this? e.g. home, school, road, hospital." /></label>
+        <select value={infra} onChange={(e) => setInfra(e.target.value)} className="select">
+          <option value="">{t('select')}</option>
+          {INFRA.map(i => <option key={i} value={i}>{i}</option>)}
+        </select>
 
-          <label className="field-label">{t('crisisType')}</label>
-          <select value={crisis} onChange={(e) => setCrisis(e.target.value)} className="select">
-            <option value="">{t('select')}</option>
-            {CRISIS.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+        <label className="field-label">{t('crisisType')} <Help text="What caused the damage? e.g. flood, earthquake, cyclone, conflict." /></label>
+        <select value={crisis} onChange={(e) => setCrisis(e.target.value)} className="select">
+          <option value="">{t('select')}</option>
+          {CRISIS.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
 
-          <label className="field-label">{t('descriptionLabel')}</label>
+        <label className="field-label">{t('descriptionLabel')} <Help text="Optional. Describe what you see in your own words, or tap the mic to speak — any language is fine." /></label>
+        <div className="desc-row">
           <textarea value={description} onChange={(e) => setDescription(e.target.value)}
             placeholder={t('descriptionPlaceholder')} className="select" rows={3} style={{ resize: 'vertical', fontFamily: 'inherit' }} />
+          <button type="button" className={`mic-btn ${listening ? 'listening' : ''}`} onClick={toggleListening} title="Speak your description">
+            {listening ? '⏹' : '🎤'}
+          </button>
+        </div>
+        {listening && <p className="ai-hint">🎙️ Listening... speak now</p>}
 
-          <button className="submit-btn" onClick={submit}>{t('submit')}</button>
+        <label className="checkbox-row">
+          <input type="checkbox" checked={wantContact} onChange={(e) => setWantContact(e.target.checked)} />
+          Contact me about this report (optional)
+        </label>
+        {wantContact && (
+          <input type="text" value={contactInfo} onChange={(e) => setContactInfo(e.target.value)}
+            placeholder="Phone or email" className="select" style={{ marginTop: '8px' }} />
+        )}
 
-          <p className="status">{status}</p>
-          <p className="queue-status">
-            {online ? '● ' + t('online') : '○ ' + t('offline')}{queued > 0 ? ` — ${queued}` : ''}
-          </p>
+        <button className="submit-btn" onClick={submit}>{t('submit')}</button>
 
-          <h2 style={{ marginTop: '32px' }}>{t('nearby')}</h2>
-          <p className="map-hint">{t('nearbyHint')}</p>
-          <MapView />
-        </main>
-      ) : (
-        <Dashboard lang={lang} />
-      )}
+        <p className="status">{status}</p>
+        <p className="queue-status">
+          {online ? '● ' + t('online') : '○ ' + t('offline')}{queued > 0 ? ` — ${queued}` : ''}
+        </p>
+
+        <h2 style={{ marginTop: '32px' }}>{t('nearby')}</h2>
+        <p className="map-hint">{t('nearbyHint')}</p>
+        <MapView />
+      </main>
     </div>
   )
 }
