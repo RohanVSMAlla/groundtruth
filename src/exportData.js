@@ -8,6 +8,7 @@ export async function exportGeoJSON() {
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [r.longitude, r.latitude] },
       properties: {
+        contributor_id: r.contributor_id,
         damage_level: r.damage_level,
         infrastructure_type: r.infrastructure_type,
         crisis_type: r.crisis_type,
@@ -27,8 +28,8 @@ export async function exportGeoJSON() {
 
 export async function exportCSV() {
   const { data } = await supabase.from('reports').select('*')
-  const cols = ['created_at', 'damage_level', 'infrastructure_type', 'crisis_type', 'has_debris', 'latitude', 'longitude', 'what3words', 'country', 'landmark', 'description', 'contact_info', 'photo_url']
-  const headerNames = ['created_at', 'damage_level', 'infrastructure_type', 'crisis_type', 'has_debris', 'latitude', 'longitude', 'plus_code', 'country', 'landmark', 'description', 'contact_info', 'photo_url']
+  const cols = ['created_at', 'contributor_id', 'damage_level', 'infrastructure_type', 'crisis_type', 'has_debris', 'latitude', 'longitude', 'what3words', 'country', 'landmark', 'description', 'contact_info', 'photo_url']
+  const headerNames = ['created_at', 'contributor_id', 'damage_level', 'infrastructure_type', 'crisis_type', 'has_debris', 'latitude', 'longitude', 'plus_code', 'country', 'landmark', 'description', 'contact_info', 'photo_url']
   const header = headerNames.join(',')
   const rows = (data || []).map((r) => cols.map((c) => `"${String(r[c] ?? '').replace(/"/g, '""')}"`).join(','))
   download([header, ...rows].join('\n'), 'groundtruth-reports.csv', 'text/csv')
